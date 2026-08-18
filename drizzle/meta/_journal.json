@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787054800958,
+      "tag": "0000_spooky_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787055758671,
+      "tag": "0001_gifted_silk_fever",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787056000000,
+      "tag": "0002_seed_assets_a_2026",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787056100000,
+      "tag": "0003_seed_assets_b_2026",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787056200000,
+      "tag": "0004_seed_social_2026",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787056384684,
+      "tag": "0005_round_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787064000000,
+      "tag": "0006_public_relation_graph",
+      "breakpoints": true
+    }
+  ]
+}
