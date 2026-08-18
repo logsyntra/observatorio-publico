@@ -59,7 +59,8 @@ export type OfficialCandidate = {
 type CandidateAsset = { itemOrder: number; assetType: string; description: string; valueCents: number; updatedAt: string };
 type SocialLink = { itemOrder: number; platform: string; rawUrl: string; url: string | null };
 type FormalRelation = { candidateId: string; fullName: string; ballotName: string; role: string; partyAcronym: string; partyName: string; status: string | null; photoUrl: string | null; evidenceLabel: string };
-type PublicRelation = { slug: string; fullName: string; displayName: string; relationType: "familia" | "politica" | "profissional" | "societaria"; relationLabel: string; publicRole: string; publicFigure: boolean; candidateId: string | null; profileUrl: string | null; evidence: Array<{ title: string; publisher: string; url: string }> };
+type PublicRelation = { slug: string; fullName: string; displayName: string; entityType: "person" | "company" | "organization"; relationType: "familia" | "politica" | "profissional" | "societaria"; relationLabel: string; publicRole: string; publicFigure: boolean; candidateId: string | null; profileUrl: string | null; officialIdentifier: string | null; identifierType: "tse_candidate_id" | "cnpj" | "official_registry" | null; evidence: Array<{ title: string; publisher: string; url: string }> };
+type RelationCoverage = { total: number; expandedProfiles: number; byType: Record<string, number>; sources: { formalTse: { state: string; count: number; scope: string }; reviewedGraph: { state: string; count: number; scope: string }; curatedPublicRecords: { state: string; count: number; scope: string } } };
 type PreviousElection = { year: number; candidateId: string; electionId: string; electoralUnit: string; location: string; office: string; partyAcronym: string; candidateNumber: string; result: string; sourceUrl: string | null };
 type FilterOption = { value: string; label?: string; count: number };
 type FilterOptions = { states: FilterOption[]; offices: FilterOption[]; parties: FilterOption[]; judgments: FilterOption[] };
@@ -614,7 +615,8 @@ function OfficialProfilePanel({ candidate, activeTab, loading }: { candidate: Of
 
 function PublicRelationsPanel({ candidate }: { candidate: OfficialCandidate }) {
   const [relations, setRelations] = useState<PublicRelation[]>([]);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<RelationCoverage | null>(null);
+  const [selectedRelationKey, setSelectedRelationKey] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [dossier, setDossier] = useState<{ items?: Array<{ id: string; title: string; url: string; publisher: string; publishedAt: string; category: string }>; categoryTotals?: Record<string, number>; officialRecords?: { justice?: string; police?: string; contracts?: string; legislative?: string }; coverage?: { state?: string; total?: number }; methodology?: { warning?: string } } | null>(null);
   const [dossierState, setDossierState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -622,13 +624,13 @@ function PublicRelationsPanel({ candidate }: { candidate: OfficialCandidate }) {
   useEffect(() => {
     const controller = new AbortController();
     fetch(`/api/relations/candidate/${candidate.sourceRecordId}`, { signal: controller.signal })
-      .then(async (response) => { if (!response.ok) throw new Error("relations unavailable"); return response.json() as Promise<{ relations: PublicRelation[] }>; })
-      .then((payload) => { setRelations(payload.relations); setSelectedSlug(payload.relations[0]?.slug ?? null); setDossierState(payload.relations.length ? "loading" : "idle"); setState("ready"); })
+      .then(async (response) => { if (!response.ok) throw new Error("relations unavailable"); return response.json() as Promise<{ relations: PublicRelation[]; coverage: RelationCoverage }>; })
+      .then((payload) => { setRelations(payload.relations); setCoverage(payload.coverage); setSelectedRelationKey(null); setDossier(null); setDossierState("idle"); setState("ready"); })
       .catch((error) => { if (error.name !== "AbortError") setState("error"); });
     return () => controller.abort();
   }, [candidate.sourceRecordId]);
 
-  const selected = relations.find((item) => item.slug === selectedSlug) ?? null;
+  const selected = relations.find((item) => `${item.relationType}:${item.slug}:${item.relationLabel}` === selectedRelationKey) ?? null;
   useEffect(() => {
     if (!selected) return;
     const controller = new AbortController();
@@ -640,17 +642,19 @@ function PublicRelationsPanel({ candidate }: { candidate: OfficialCandidate }) {
   }, [selected]);
 
   return <section className="publicRelationsSection">
-    <div className="sectionHeading"><div><span className="miniLabel">Parentesco e pessoas públicas relacionadas</span><h3>Vínculos familiares documentados</h3></div><span className="verifiedSeal">{relations.length} conferidos</span></div>
+    <div className="sectionHeading"><div><span className="miniLabel">Pessoas, empresas e organizações</span><h3>Vínculos públicos documentados</h3></div><span className="verifiedSeal">{relations.length} conferidos</span></div>
+    {coverage && <div className="relationCoverageGrid"><article><span>TSE · chapa formal</span><strong>{coverage.sources.formalTse.count}</strong><small>{coverage.sources.formalTse.state === "active" ? "fonte ativa" : "fonte indisponível agora"}</small></article><article><span>Curadoria documental</span><strong>{coverage.sources.curatedPublicRecords.count}</strong><small>parentesco e atuação pública</small></article><article><span>Grafo revisado</span><strong>{coverage.sources.reviewedGraph.count}</strong><small>profissionais, empresas e organizações</small></article><article><span>Dossiês navegáveis</span><strong>{coverage.expandedProfiles}</strong><small>identidade pública confirmada</small></article></div>}
     {state === "loading" ? <p className="loadingLine">Carregando vínculos com evidência pública…</p> : state === "error" ? <div className="coverageNotice"><strong>Fonte de vínculos indisponível.</strong><p>Nenhuma relação foi inferida pelo sobrenome.</p></div> : relations.length ? <div className="publicRelationWorkspace">
-      <div className="publicRelationList">{relations.map((relation) => <button type="button" key={relation.slug} className={selected?.slug === relation.slug ? "selected" : ""} onClick={() => { setSelectedSlug(relation.slug); setDossier(null); setDossierState("loading"); }}><span>{initialsFor(relation.displayName)}</span><div><small>{relation.relationLabel}</small><strong>{relation.displayName}</strong><p>{relation.publicRole}</p></div><i>→</i></button>)}</div>
+      <div className="publicRelationList">{relations.map((relation) => { const relationKey = `${relation.relationType}:${relation.slug}:${relation.relationLabel}`; return <button type="button" key={relationKey} className={selectedRelationKey === relationKey ? "selected" : ""} onClick={() => { setSelectedRelationKey(relationKey); setDossier(null); setDossierState("loading"); }}><span>{initialsFor(relation.displayName)}</span><div><small>{relation.relationLabel} · {relation.entityType === "company" ? "empresa" : relation.entityType === "organization" ? "organização" : "pessoa"}</small><strong>{relation.displayName}</strong><p>{relation.publicRole}</p></div><i>→</i></button>; })}</div>
       {selected && <aside className="publicRelationDossier"><span className="miniLabel">Vínculo selecionado · {selected.relationLabel}</span><h4>{selected.displayName}</h4><p>{selected.publicRole}</p>
         <div className="relationEvidence"><strong>Prova do vínculo</strong>{selected.evidence.map((item) => <a href={item.url} target="_blank" rel="noreferrer" key={item.url}>{item.title}<small>{item.publisher} ↗</small></a>)}</div>
         <div className="relationActions">{selected.candidateId && <Link href={`/candidato/${selected.candidateId}`}>Abrir candidatura completa →</Link>}{selected.profileUrl && <a href={selected.profileUrl} target="_blank" rel="noreferrer">Perfil público oficial ↗</a>}</div>
-        <div className="relatedCoverage"><article><span>Notícias</span><strong>{dossier?.coverage?.total ?? 0}</strong><small>índice desde 2000</small></article><article><span>Menções de Justiça</span><strong>{dossier?.categoryTotals?.justica ?? 0}</strong><small>pistas jornalísticas</small></article><article><span>Processos e inquéritos</span><strong>Por número</strong><small>identidade + papel exigidos</small></article><article><span>Contratos</span><strong>Por CNPJ</strong><small>empresa confirmada exigida</small></article></div>
+        <div className="relatedCoverage"><article><span>Notícias</span><strong>{dossier?.coverage?.total ?? 0}</strong><small>índice desde 2000</small></article><article><span>Menções de Justiça</span><strong>{dossier?.categoryTotals?.justica ?? 0}</strong><small>pistas jornalísticas</small></article><article><span>Processos e inquéritos</span><strong>Por número</strong><small>identidade + papel exigidos</small></article><article><span>Contratos</span><strong>{selected.identifierType === "cnpj" ? "CNPJ confirmado" : "Por CNPJ"}</strong><small>{selected.identifierType === "cnpj" ? "conector oficial preparado" : "empresa confirmada exigida"}</small></article></div>
         <div className="relatedNews"><div><strong>Notícias, Justiça e controvérsias</strong><small>{dossier?.coverage?.total ?? 0} manchetes indexadas</small></div>{dossierState === "loading" ? <p>Consultando o índice histórico…</p> : dossierState === "error" ? <p>A fonte jornalística não respondeu agora.</p> : dossier?.coverage?.state === "relation_only" ? <p>O vínculo é público, mas o sistema não abre dossiê ampliado sem atuação pública documentada.</p> : dossier?.items?.length ? dossier.items.slice(0, 12).map((item) => <a href={item.url} target="_blank" rel="noreferrer" key={item.id}><span className={`eventType ${item.category === "atuacao" ? "legislative" : item.category === "contratos" ? "contract" : "election"}`}>{item.category}</span><strong>{item.title}</strong><small>{item.publisher} · {new Date(item.publishedAt).toLocaleDateString("pt-BR")}</small></a>) : <p>Nenhuma manchete foi atribuída com segurança neste retorno.</p>}</div>
-        <div className="associationWarning"><strong>Parentesco não transfere responsabilidade</strong><p>{dossier?.methodology?.warning ?? "Atos de uma pessoa nunca são atribuídos automaticamente à outra."}</p></div>
+        <div className="associationWarning"><strong>Vínculo não transfere responsabilidade</strong><p>{dossier?.methodology?.warning ?? "Atos de uma pessoa ou empresa nunca são atribuídos automaticamente à outra."}</p></div>
       </aside>}
-    </div> : <div className="emptyModule"><strong>Nenhum vínculo familiar curado para esta identidade.</strong><p>Ausência aqui significa cobertura ainda incompleta, não ausência de parentes ou relações.</p></div>}
+      {!selected && <aside className="publicRelationDossier relationSelectionPrompt"><span className="miniLabel">Consulta sob demanda</span><h4>Escolha um vínculo</h4><p>As notícias e o dossiê só são carregados depois do clique. Isso acelera a ficha e evita consultas desnecessárias.</p><strong>Nenhuma relação é criada por sobrenome, coincidência de endereço ou simples menção.</strong></aside>}
+    </div> : <div className="emptyModule"><strong>Nenhum vínculo adicional confirmado para esta identidade.</strong><p>A chapa formal foi consultada; parentes, assessores, sócios, empregados e empresas só entram quando há fonte pública e identidade revisada.</p></div>}
   </section>;
 }
 

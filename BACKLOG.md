@@ -16,6 +16,9 @@ Este arquivo é a lista operacional do produto. “Concluído” significa que o
 - [x] Livro judicial histórico revisado de Lula, preservando anulações, absolvições e estado atual.
 - [x] Primeiro catálogo de parentesco público documentado: Lula, Janja e filhos; Carlos, Flávio, Jair e Eduardo Bolsonaro.
 - [x] Dossiê jornalístico clicável para pessoa relacionada que tenha atuação pública documentada.
+- [x] Rede unificada para todas as chapas de 2026: vice, suplentes e integrantes publicados pelo TSE abrem candidatura e dossiê próprios.
+- [x] Entidades persistentes preparadas para pessoa, empresa e organização, com identificador oficial ou CNPJ confirmado.
+- [x] Carregamento de notícias relacionadas sob demanda, sem bloquear a abertura da ficha.
 
 ## Prioridade zero — cobertura nacional
 
@@ -65,12 +68,12 @@ Este arquivo é a lista operacional do produto. “Concluído” significa que o
 
 ## GitHub e hospedagem
 
-- [ ] Criar um repositório dedicado `observatorio-publico` na conta do proprietário.
-- [ ] Enviar o histórico Git validado para o novo repositório.
-- [ ] Adicionar CI para lint, testes e build em cada alteração.
-- [ ] Manter o backend dinâmico no Sites/Cloudflare: GitHub Pages não executa APIs, D1, SSR ou consultas DataJud/TSE.
-- [ ] Se GitHub Pages for obrigatório para a interface, gerar um frontend estático separado, configurar CORS e apontá-lo para o backend público.
-- [ ] Ativar Pages apenas depois que a separação frontend/backend passar nos testes de produção.
+- [x] Criar um repositório dedicado `observatorio-publico` na conta do proprietário.
+- [x] Enviar o código validado para o novo repositório.
+- [x] Adicionar CI para lint, testes e build em cada alteração.
+- [x] Manter o backend dinâmico no Sites/Cloudflare: GitHub Pages não executa APIs, D1, SSR ou consultas DataJud/TSE.
+- [x] Publicar uma entrada estática no Pages que preserva rota, busca e fragmento ao abrir o backend dinâmico.
+- [x] Ativar Pages depois de CI e teste de link direto de candidatura.
 
 ## Regra de conclusão
 

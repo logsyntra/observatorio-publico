@@ -1,4 +1,7 @@
-import { getPublicPersonBySlug } from "../../../../../lib/public-relations";
+import { getCandidateProfile } from "../../../../../lib/candidate-profile";
+import { getPublicPersonBySlug, type PublicRelation } from "../../../../../lib/public-relations";
+import { getStoredPublicEntityBySlug } from "../../../../../lib/relation-store";
+import { tseCandidatePublicUrl } from "../../../../../lib/tse-divulga";
 
 export const dynamic = "force-dynamic";
 
@@ -7,9 +10,11 @@ const GOOGLE_NEWS_RSS = "https://news.google.com/rss/search";
 
 export async function GET(_request: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;
-  const person = getPublicPersonBySlug(slug);
-  if (!person) return Response.json({ error: "Pessoa relacionada não cadastrada." }, { status: 404 });
-  if (!person.publicFigure) return Response.json({ person, items: [], coverage: { state: "relation_only" }, methodology: { warning: "O vínculo familiar é público, mas não há função pública suficiente para abrir um dossiê ampliado." } });
+  const candidateMatch = slug.match(/^candidate-(\d{6,18})$/);
+  const candidate = candidateMatch ? await getCandidateProfile(candidateMatch[1]) : null;
+  const person = candidate ? candidateAsRelation(candidate) : await getStoredPublicEntityBySlug(slug) ?? getPublicPersonBySlug(slug);
+  if (!person) return Response.json({ error: "Pessoa ou entidade relacionada não cadastrada." }, { status: 404 });
+  if (!person.publicFigure && person.entityType === "person") return Response.json({ person, items: [], coverage: { state: "relation_only" }, methodology: { warning: "O vínculo é público, mas não há atuação pública suficiente para abrir um dossiê ampliado." } });
 
   const currentYear = new Date().getUTCFullYear();
   const years = Array.from({ length: currentYear - FIRST_YEAR + 1 }, (_, index) => FIRST_YEAR + index);
@@ -30,7 +35,25 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   const seen = new Set<string>();
   const items = responses.flatMap((item) => item.items).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).filter((item) => { const key = normalize(item.title); if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 300);
   const categoryTotals = items.reduce((totals, item) => ({ ...totals, [item.category]: (totals[item.category] ?? 0) + 1 }), {} as Record<NewsItem["category"], number>);
-  return Response.json({ person, items, categoryTotals, officialRecords: { justice: "requires_exact_case_identifier", police: "no_unified_public_national_name_search", contracts: "requires_confirmed_cnpj", legislative: person.candidateId ? "candidate_profile_available" : "role_connector_required" }, coverage: { state: "news_index", requestedFrom: FIRST_YEAR, requestedTo: currentYear, yearsRetrieved: responses.filter((item) => item.ok).length, total: items.length }, methodology: { warning: "Notícia é pista, não prova. Processos, inquéritos e prisões só podem ser atribuídos por número oficial, papel processual e identidade confirmada." } }, { headers: { "Cache-Control": "private, max-age=900" } });
+  return Response.json({ person, items, categoryTotals, officialRecords: { justice: "requires_exact_case_identifier", police: "no_unified_public_national_name_search", contracts: person.identifierType === "cnpj" ? "cnpj_confirmed_connector_pending" : "requires_confirmed_cnpj", legislative: person.candidateId ? "candidate_profile_available" : "role_connector_required" }, coverage: { state: "news_index", requestedFrom: FIRST_YEAR, requestedTo: currentYear, yearsRetrieved: responses.filter((item) => item.ok).length, total: items.length }, methodology: { warning: "Notícia é pista, não prova. Processos, inquéritos e prisões só podem ser atribuídos por número oficial, papel processual e identidade confirmada." } }, { headers: { "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=86400" } });
+}
+
+function candidateAsRelation(candidate: NonNullable<Awaited<ReturnType<typeof getCandidateProfile>>>): PublicRelation {
+  return {
+    slug: `candidate-${candidate.sourceRecordId}`,
+    fullName: candidate.fullName,
+    displayName: candidate.ballotName,
+    entityType: "person",
+    relationType: "politica",
+    relationLabel: candidate.office,
+    publicRole: `${candidate.office} · ${candidate.state} · ${candidate.partyAcronym}`,
+    publicFigure: true,
+    candidateId: candidate.sourceRecordId,
+    profileUrl: tseCandidatePublicUrl(candidate),
+    officialIdentifier: candidate.sourceRecordId,
+    identifierType: "tse_candidate_id",
+    evidence: [{ title: "Candidatura publicada pelo TSE", publisher: "Tribunal Superior Eleitoral", url: tseCandidatePublicUrl(candidate) }],
+  };
 }
 
 type NewsItem = { id: string; title: string; url: string; publisher: string; publishedAt: string; category: "justica" | "contratos" | "atuacao" | "controversia" | "geral" };

@@ -4,13 +4,26 @@ export type PublicRelation = {
   slug: string;
   fullName: string;
   displayName: string;
+  entityType: "person" | "company" | "organization";
   relationType: "familia" | "politica" | "profissional" | "societaria";
   relationLabel: string;
   publicRole: string;
   publicFigure: boolean;
   candidateId: string | null;
   profileUrl: string | null;
+  officialIdentifier: string | null;
+  identifierType: "tse_candidate_id" | "cnpj" | "official_registry" | null;
   evidence: Array<{ title: string; publisher: string; url: string }>;
+};
+
+type FormalCandidateRelation = {
+  candidateId: string;
+  fullName: string;
+  ballotName: string;
+  role: string;
+  partyAcronym: string;
+  partyName: string;
+  status: string | null;
 };
 
 const sources = {
@@ -55,6 +68,24 @@ export function getPublicPersonBySlug(slug: string) {
   return Array.from(byCandidate.values()).flat().find((person) => person.slug === slug) ?? null;
 }
 
+export function getFormalCandidateRelations(relations: FormalCandidateRelation[], sourceUrl: string): PublicRelation[] {
+  return relations.map((item) => ({
+    slug: `candidate-${item.candidateId}`,
+    fullName: item.fullName,
+    displayName: item.ballotName || item.fullName,
+    entityType: "person",
+    relationType: "politica",
+    relationLabel: item.role || "Integrante da chapa",
+    publicRole: [item.role, item.partyAcronym, item.status].filter(Boolean).join(" · "),
+    publicFigure: true,
+    candidateId: item.candidateId,
+    profileUrl: null,
+    officialIdentifier: item.candidateId,
+    identifierType: "tse_candidate_id",
+    evidence: [{ title: "Composição formal da chapa publicada pelo TSE", publisher: "Tribunal Superior Eleitoral", url: sourceUrl }],
+  }));
+}
+
 function relation(slug: string, fullName: string, displayName: string, relationLabel: string, publicRole: string, publicFigure: boolean, candidateId: string | null, profileUrl: string | null, sourcesInput: Array<[string, string, string]>): PublicRelation {
-  return { slug, fullName, displayName, relationType: "familia", relationLabel, publicRole, publicFigure, candidateId, profileUrl, evidence: sourcesInput.map(([title, publisher, url]) => ({ title, publisher, url })) };
+  return { slug, fullName, displayName, entityType: "person", relationType: "familia", relationLabel, publicRole, publicFigure, candidateId, profileUrl, officialIdentifier: candidateId, identifierType: candidateId ? "tse_candidate_id" : null, evidence: sourcesInput.map(([title, publisher, url]) => ({ title, publisher, url })) };
 }
