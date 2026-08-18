@@ -145,8 +145,8 @@ test("wires the official 2026 candidate search to durable, minimized data", asyn
   assert.match(app, /Vetos presidenciais durante os mandatos/);
   assert.match(app, /Repercussão e controvérsias/);
   assert.match(app, /Relações políticas formais/);
-  assert.match(app, /Vínculos familiares documentados/);
-  assert.match(app, /Parentesco não transfere responsabilidade/);
+  assert.match(app, /Vínculos públicos documentados/);
+  assert.match(app, /Vínculo não transfere responsabilidade/);
   assert.match(relationsRoute, /getPublicRelations/);
   assert.match(relatedPersonRoute, /Notícia é pista, não prova/);
   assert.match(publicRelations, /rosangela-lula-da-silva/);
@@ -175,4 +175,27 @@ test("wires the official 2026 candidate search to durable, minimized data", asyn
   assert.match(enrichment, /tse-bens-candidatos-2026/);
   assert.match(enrichment, /75253\);/);
   assert.match(enrichment, /48127\);/);
+});
+
+test("scales verified relations without inferring identity", async () => {
+  const [relationsRoute, dossierRoute, relationStore, publicRelations, schema, migration, app] = await Promise.all([
+    readFile(new URL("../app/api/relations/candidate/[id]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/relations/person/[slug]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/relation-store.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/public-relations.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0007_public_entity_identifiers.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/observatorio-app.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(relationsRoute, /fetchTseCandidateDossier/);
+  assert.match(relationsRoute, /getFormalCandidateRelations/);
+  assert.match(publicRelations, /candidate-\$\{item\.candidateId\}/);
+  assert.match(dossierRoute, /candidate-\(\\d\{6,18\}\)/);
+  assert.match(dossierRoute, /getStoredPublicEntityBySlug/);
+  assert.match(relationStore, /official_identifier/);
+  assert.match(schema, /public_entities_official_identifier_idx/);
+  assert.match(migration, /ALTER TABLE `public_entities` ADD `official_identifier`/);
+  assert.match(app, /As notícias e o dossiê só são carregados depois do clique/);
+  assert.match(app, /Nenhuma relação é criada por sobrenome/);
 });

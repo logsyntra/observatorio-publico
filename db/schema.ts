@@ -90,10 +90,13 @@ export const publicEntities = sqliteTable("public_entities", {
   isPublicFigure: integer("is_public_figure", { mode: "boolean" }).notNull().default(false),
   candidateId: text("candidate_id").references(() => candidates.sourceRecordId, { onDelete: "set null" }),
   profileUrl: text("profile_url"),
+  officialIdentifier: text("official_identifier"),
+  identifierType: text("identifier_type"),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [
   index("public_entities_normalized_name_idx").on(table.normalizedName),
   index("public_entities_candidate_idx").on(table.candidateId),
+  index("public_entities_official_identifier_idx").on(table.identifierType, table.officialIdentifier),
 ]);
 
 export const publicRelations = sqliteTable("public_relations", {

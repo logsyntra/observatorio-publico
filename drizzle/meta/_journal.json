@@ -50,6 +50,13 @@
       "when": 1787064000000,
       "tag": "0006_public_relation_graph",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787083200000,
+      "tag": "0007_public_entity_identifiers",
+      "breakpoints": true
     }
   ]
 }
